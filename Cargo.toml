@@ -1,0 +1,7 @@
+[package]
+name = "generator_of_parsers"
+version = "0.1.0"
+authors = ["asadir <AsadiR.KEV@Gmail.com>"]
+
+[dependencies]
+rand = "*"
