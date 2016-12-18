@@ -2,24 +2,10 @@ mod ast;
 
 use std::vec::Vec;
 
-/*
-((grammar = rule+)
- (rule = <@NONTERM "=" multi_addendum> )
- (multi_addendum = addendum <"||" addendum>* )
- (addendum = factor+)
- (factor = "(" multi_addendum ")" op || ident op || )
- (op = "*" || "+" || "?" || )
- (ident  = @TERM || @NONTERM )))
-
-*/
-
-
-
-
 macro_rules! gen_ast {
     // grammar = rule+ .
-    // rule = "[" @NONTERM "=" (multi_addendum | factor) "]" .
-    ( $([$lp:ident => $rp:tt])* ) => {{
+    // rule = "[" "@nonterm" "=" multi_addendum "]" .
+    ( $([@$lp:ident => $rp:tt])* ) => {{
         let mut grammar = ast::AST {
             marker: "Grammar".to_string(),
             value: None,
@@ -28,12 +14,12 @@ macro_rules! gen_ast {
 
         $(
             let mut rule = ast::AST {
-                marker: "Rule".to_string(),
+                marker: "#Rule".to_string(),
                 value: None,
                 children: Some(Vec::new())
             };
             let lp = ast::AST {
-                marker: "@Term".to_string(),
+                marker: "Term".to_string(),
                 value: Some($lp),
                 children: None
             };
@@ -43,7 +29,7 @@ macro_rules! gen_ast {
                 children: Some(Vec::new())
             };
             rule.children.as_mut().unwrap().push(lp);
-            gen_ast!($rp @ma);
+            gen_ast!($rp %ma ma);
             rule.children.as_mut().unwrap().push(ma);
             grammar.children.as_mut().unwrap().push(rule);
 
@@ -51,44 +37,110 @@ macro_rules! gen_ast {
         grammar
     }};
 
-    // multi_addendum = "(" addendum ("|" addendum)* ")" .
-    ( ($($a:tt)|+) @$ma:ident ) => {
+    // multi_addendum = addendum ("|" addendum)* .
+    ( $($a:tt)|+ %ma $ma:ident ) => {
         $(
-            let a = ast::AST {
+            let mut a = ast::AST {
                 marker: "Addendum".to_string(),
                 value: None,
                 children: Some(Vec::new())
             };
-            gen_ast!($a);
+            gen_ast!($a %a a);
             $ma.children.as_mut().unwrap().push(a);
         )*;
     };
 
-    //factor = "(" multi_addendum ")"
-    ( ($($f:tt)*)) => {
-        println!("factor_in_br");
+    // addendum = "(" factor+ ")" .
+    ( ($($f:tt)+) %a $a:ident) => {
+        $(
+            let mut f = ast::AST {
+                marker: "Factor".to_string(),
+                value: None,
+                children: Some(Vec::new())
+            };
+            gen_ast!($f %f f);
+            $a.children.as_mut().unwrap().push(f);
+        )*;
     };
 
-    //factor = ident
-    ( $($f:ident)* ) => {
-        println!("factor ");
-    };
+
+    // factor = ident .
+    // ident  = "term" .
+    ( $t:ident %f $f:ident) => {
+        let t = ast::AST {
+            marker: "Term".to_string(),
+            value: Some($t),
+            children: None
+        };
+        $f.children.as_mut().unwrap().push(t);
+    }
+
+/*
+    // factor = ident "*" .
+    // ident  = "term" .
+    ( * %f $f:ident ) => {
+        let op = ast::AST {
+            marker: "Term".to_string(),
+            value: Some("*".to_string()),
+            children: None
+        };
+        $f.children.as_mut().unwrap().push(op);
+    }
+
+    // factor = ident "+" .
+    // ident  = "term" .
+    ( + %f $f:ident) => {
+        let op = ast::AST {
+            marker: "Term".to_string(),
+            value: Some("+".to_string()),
+            children: None
+        };
+        $f.children.as_mut().unwrap().push(op);
+    }
+
+    // factor = ident "?" .
+    // ident  = "term" .
+    ( ? %f $f:ident) => {
+        let op = ast::AST {
+            marker: "Term".to_string(),
+            value: Some("?".to_string()),
+            children: None
+        };
+        $f.children.as_mut().unwrap().push(op);
+    }
+*/
 }
 
+macro_rules! test{
+    ( + ) => { println!("hi");};
+}
 
+/*
+grammar = rule+ .
+rule = "[" "@nonterm" "=" multi_addendum "]" .
+multi_addendum = addendum ("|" addendum)* .
+addendum = "(" factor+ ")" .
+factor = ident .
+factor = ident "*" .
+factor = ident "+" .
+factor = ident "?" .
+factor = multi_addendum .
+factor = multi_addendum "*" .
+factor = multi_addendum "+" .
+factor = multi_addendum "?" .
+ident  = "term" .
+ident = "@nonterm" .
+*/
 
 fn main() {
-    let term = "term".to_string();
-    let number = "number".to_string();
-    //let it ="it".to_string();
-    let (at,bt,ct) = (1,2,3);
-    let grammar = gen_ast!{
-        [term => ( (at bt) | (bt|ct) | ct)]
-        //[it => ( (3 5)+ | 4+)]
-        //[number => 1]
+    let (term, number) = ("term".to_string(), "number".to_string());
+    let (at,bt,ct) = ("1".to_string(),"2".to_string(),"3".to_string());
+    let grammar = gen_ast! {
+        [@term => (at)]
+        [@number => (ct)]
     };
     println!("{}", grammar);
 }
 
-//(Grammar -> (Rule -> (@Term -> value: term) ) (Rule -> (@Term -> value: number) ) )
 //cargo rustc -- -Z unstable-options --pretty=expanded
+//cargo rustc -- -Z trace-macros

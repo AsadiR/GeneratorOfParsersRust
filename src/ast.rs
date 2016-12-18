@@ -19,7 +19,11 @@ impl fmt::Display for AST {
         } else {
             str = format!("value: {}", self.value.as_ref().unwrap()).to_string();
         };
-        write!(f, "({} -> {})", self.marker, str)
+        if self.marker.as_bytes()[0] == b'#' {
+            write!(f, "\n\t({} -> {})", self.marker, str)
+        } else {
+            write!(f, "({} -> {})", self.marker, str)
+        }
     }
 }
 
